@@ -1,13 +1,13 @@
 from pydantic import BaseModel
 from datetime import datetime
 
-class Post(BaseModel):
+class PostCreate(BaseModel):
 
     title: str
     content: str
 
 
-class PostResponse(Post):
+class PostResponse(PostCreate):
 
     id: int
     author_id: int # current_user

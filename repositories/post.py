@@ -20,7 +20,7 @@ class PostRepository(BaseRepository):
             result = await self.session.execute(query)
             return result.scalars().all()
         
-    async def get_one(self, post_id: int):
+    async def get_one_post(self, post_id: int):
         """
             Id bo'yicha post olish
         """
@@ -53,7 +53,7 @@ class PostRepository(BaseRepository):
         await self.session.execute(query)
         await self.session.commit()
 
-    async def delete(self, post_id: int):
+    async def delete_post(self, post_id: int):
         """
             Postni delete qilish
         """
@@ -61,3 +61,10 @@ class PostRepository(BaseRepository):
         await self.session.execute(query)
         await self.session.commit()
         
+    # async def delete_post_all(self, post_id: int):
+    #     """
+    #         Barcha Postlarni delete qilish
+    #     """
+    #     query = delete(Post)
+    #     await self.session.execute(query)
+    #     await self.session.commit()
