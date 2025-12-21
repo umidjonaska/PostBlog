@@ -13,7 +13,7 @@ class UserService(BaseService[UserRepository]):
         return await self.repository.get_one_user(user_id)
     
     async def create_user(self, payload: UserCreate):
-        await self.repository.create_user(payload.model_dump())
+        await self.repository.create_user(payload)
         return exception.CreatedResponse()
     
     async def update_user(self, user_id: int, payload: UserCreate):

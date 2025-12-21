@@ -13,7 +13,7 @@ class PostService(BaseService[PostRepository]):
         return await self.repository.get_one_post(post_id)
     
     async def create_post(self, payload: PostCreate):
-        await self.repository.create_post(payload.model_dump())
+        await self.repository.create_post(payload)
         return exception.CreatedResponse()
     
     async def update_post(self, post_id: int, payload: PostCreate):
@@ -21,7 +21,7 @@ class PostService(BaseService[PostRepository]):
         if not result:
             return exception.NotFoundResponse()
         
-        return await self.repository.update_post(post_id, payload.model_dump())
+        return await self.repository.update_post(post_id, payload)
     
     async def delete_post(self, post_id: int):
         result = await self.repository.get_one_post(post_id)

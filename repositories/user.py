@@ -1,55 +1,76 @@
-from sqlalchemy.future import select
-from sqlalchemy.orm import insert, update, delete
+from sqlalchemy import select, insert, update, delete
 
 from models.user import User
-from schemas.user import UserCreate, UserResponse
-
+from schemas.user import UserCreate
 from core.base import BaseRepository
 from utils.pagination import PageParams, pagination
 
+
 class UserRepository(BaseRepository):
-    async def get_all_user(self, page_params: PageParams = None):
+
+    async def get_all_user(self, page_params: PageParams | None = None):
         """
-            Users haqida barcha ma'lumotlar
+        Barcha userlar
         """
         query = select(User)
 
-        #Pagination
         if page_params:
-            return pagination(self.session, query, page_params)
-        else:
-            result = self.session.execute(query)
-            return result.scalars().all()
-        
+            return await pagination(self.session, query, page_params)
+
+        result = await self.session.execute(query)
+        return result.scalars().all()
+
     async def get_one_user(self, user_id: int):
         """
-            Id bo'yicha user olish
+        ID bo‘yicha user
         """
-        query = select(User).where(User.id==user_id)
+        query = select(User).where(User.id == user_id)
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
-    
-    async def create_user(self, payload: UserCreate, flush: bool = False, commit: bool = False) -> int|bool:
+
+    async def create_user(
+        self,
+        payload: UserCreate,
+        *,
+        flush: bool = False,
+        commit: bool = True
+    ) -> int | None:
         """
-            Yangi user yaratish
+        Yangi user yaratish
         """
-        query = insert(User).values(payload)
-        exc = await self.session.execute(query)
+        query = insert(User).values(payload.model_dump())
+        result = await self.session.execute(query)
 
         if flush:
             await self.session.flush()
-            pk = exc.inserted_primary_key
-            return pk[0] if pk else False
-        elif commit:
+            pk = result.inserted_primary_key
+            return pk[0] if pk else None
+
+        if commit:
             await self.session.commit()
-            return True
-        
-        return False
-    
-    async def update_user(self, user_id: int, payload: UserCreate):
+
+        return None
+
+    async def update_user(self, user_id: int, payload: UserCreate) -> bool:
         """
-            Userni yangilash
+        Userni yangilash
         """
-        query = update(User).where(User.id==user_id).values(payload)
-        await self.session.execute(query)
+        query = (
+            update(User)
+            .where(User.id == user_id)
+            .values(payload.model_dump())
+        )
+        result = await self.session.execute(query)
         await self.session.commit()
+
+        return result.rowcount > 0
+
+    # async def delete_user(self, user_id: int) -> bool:
+    #     """
+    #     Userni o‘chirish
+    #     """
+    #     query = delete(User).where(User.id == user_id)
+    #     result = await self.session.execute(query)
+    #     await self.session.commit()
+
+    #     return result.rowcount > 0
