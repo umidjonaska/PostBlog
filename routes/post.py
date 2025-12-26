@@ -4,7 +4,7 @@ from utils.pagination import Page, PageParams, get_page_params
 from deps import post_service_dp
 
 from services.post import PostService
-from schemas.post import PostResponse, PostCreate
+from schemas.post import PostResponse, PostCreate, PostUpdate
 
 router = APIRouter()
 
@@ -32,7 +32,7 @@ async def create_post(
 @router.put("/post", summary="Postni yangilash")
 async def update_post(
     post_id: int,
-    payload: PostCreate,
+    payload: PostUpdate,
     _service: PostService = Depends(post_service_dp)
 ):
     return await _service.update_post(post_id, payload)

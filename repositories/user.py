@@ -1,5 +1,5 @@
 from sqlalchemy import select, insert, update, delete
-
+from sqlalchemy.orm import selectinload
 from models.user import User
 from schemas.user import UserCreate
 from core.base import BaseRepository
@@ -12,7 +12,7 @@ class UserRepository(BaseRepository):
         """
         Barcha userlar
         """
-        query = select(User)
+        query = select(User).options(selectinload(User.posts))
 
         if page_params:
             return await pagination(self.session, query, page_params)
@@ -24,7 +24,7 @@ class UserRepository(BaseRepository):
         """
         ID bo‘yicha user
         """
-        query = select(User).where(User.id == user_id)
+        query = select(User).where(User.id == user_id).options(selectinload(User.posts))
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
 

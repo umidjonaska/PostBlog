@@ -27,6 +27,7 @@ class DatabaseSettings(BaseSettings):
     db_database: str = env.str("DB_DATABASE")
     db_username: str = env.str("DB_USERNAME")
     db_password: Optional[str] = Field(default=env.str("DB_PASSWORD", None))
+    db_charset: str = env.str("DB_CHARSET")
 
 
 # AlembicSettings

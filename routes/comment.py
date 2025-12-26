@@ -4,7 +4,7 @@ from utils.pagination import Page, PageParams, get_page_params
 from deps import comment_service_dp
 
 from services.comment import CommentService
-from schemas.comment import CommentResponse, CommentCreate
+from schemas.comment import CommentResponse, CommentCreate, CommentUpdate
 
 router = APIRouter()
 
@@ -22,7 +22,7 @@ async def get_one_comment(
 ):
     return await _service.get_one_comment(comment_id)
 
-@router.comment("/comment", summary="Yangi comment yaratish")
+@router.post("/comment", summary="Yangi comment yaratish")
 async def create_comment(
     payload: CommentCreate,
     _service: CommentService = Depends(comment_service_dp)
@@ -32,7 +32,7 @@ async def create_comment(
 @router.put("/comment", summary="commentni yangilash")
 async def update_comment(
     comment_id: int,
-    payload: CommentCreate,
+    payload: CommentUpdate,
     _service: CommentService = Depends(comment_service_dp)
 ):
     return await _service.update_comment(comment_id, payload)

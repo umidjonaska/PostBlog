@@ -3,7 +3,7 @@ from core import exception
 from utils.pagination import PageParams
 
 from repositories.comment import CommentRepository
-from schemas.comment import commentCreate
+from schemas.comment import CommentCreate
 
 class CommentService(BaseService[CommentRepository]):
     async def get_all_comment(self, page_params: PageParams = None):
@@ -12,11 +12,11 @@ class CommentService(BaseService[CommentRepository]):
     async def get_one_comment(self, comment_id: int):
         return await self.repository.get_one_comment(comment_id)
     
-    async def create_comment(self, payload: commentCreate):
+    async def create_comment(self, payload: CommentCreate):
         await self.repository.create_comment(payload)
         return exception.CreatedResponse()
     
-    async def update_comment(self, comment_id: int, payload: commentCreate):
+    async def update_comment(self, comment_id: int, payload: CommentCreate):
         result = await self.repository.get_one_comment(comment_id)
         if not result:
             return exception.NotFoundResponse()

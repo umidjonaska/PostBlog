@@ -1,4 +1,5 @@
 from sqlalchemy import select, insert, update, delete
+from sqlalchemy.orm import selectinload, joinedload
 from models.post import Post
 from schemas.post import PostCreate
 from core.base import BaseRepository
@@ -10,7 +11,10 @@ class PostRepository(BaseRepository):
         """
         Barcha postlarni olish (pagination bilan yoki paginationsiz)
         """
-        query = select(Post)
+        query = select(Post).options(
+            joinedload(Post.author),     # Post → User (1-to-1 / many-to-one)
+            selectinload(Post.comments)  # Post → Comments (1-to-many)
+        )
 
         if page_params:
             return await pagination(self.session, query, page_params)
@@ -21,7 +25,10 @@ class PostRepository(BaseRepository):
         """
         ID bo'yicha post olish
         """
-        query = select(Post).where(Post.id == post_id)
+        query = select(Post).where(Post.id == post_id).options(
+            selectinload(Post.author),
+            joinedload(Post.comments)
+        )
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
 

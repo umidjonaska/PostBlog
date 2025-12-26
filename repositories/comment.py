@@ -1,5 +1,7 @@
 from sqlalchemy import select, insert, update, delete
+from sqlalchemy.orm import joinedload
 from models.comment import Comment
+from models.post import Post
 from schemas.comment import CommentCreate
 from core.base import BaseRepository
 from utils.pagination import PageParams, pagination
@@ -10,7 +12,7 @@ class CommentRepository(BaseRepository):
         """
         Barcha commentlarni olish (pagination bilan yoki paginationsiz)
         """
-        query = select(Comment)
+        query = select(Comment).options(joinedload(Comment.post).options(joinedload(Post.author)))
 
         if page_params:
             return await pagination(self.session, query, page_params)
@@ -22,7 +24,9 @@ class CommentRepository(BaseRepository):
         """
         ID bo'yicha comment olish
         """
-        query = select(Comment).where(Comment.id == comment_id)
+        query = select(Comment).where(Comment.id == comment_id).options(
+            joinedload(Comment.post).options(joinedload(Post.author)
+))
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
