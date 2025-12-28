@@ -18,3 +18,4 @@ class User(Base):
     # Relationships
     posts: Mapped[str] = relationship("Post", back_populates="author")
     comments: Mapped[str] = relationship("Comment", back_populates="user")
+    media_list = relationship("Media", back_populates="owner")

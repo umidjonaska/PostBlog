@@ -20,6 +20,7 @@ if config.config_file_name is not None:
 from models.comment import Comment
 from models.post import Post
 from models.user import User
+from models.media import Media
 
 target_metadata = Base.metadata
 

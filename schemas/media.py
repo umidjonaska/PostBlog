@@ -20,20 +20,20 @@ class MediaPayload(BaseModel):
     filename: str
     path: str
     mime_type: str
-    owner_id: str
+    type: MediaType
+    size: int
+    owner_id: int
     thumbnail: Optional[str] = None
 
 class Media(MediaPayload):
-    id: str
-    size: int
-    type: MediaType
+    id: int
 
     #Fayl davomiyligi
-    duration: int
+    duration: Optional[int] = None
     # fayl o`lchami
-    resolution: str
+    resolution: Optional[str] = None
     #ma`lumot uzatish tezligi
-    bitrate: int
+    bitrate: Optional[int] = None
     status: MediaStatus
 
     created_at: datetime
