@@ -1,5 +1,4 @@
-from datetime import datetime
-from typing import Union, Optional
+from typing import Optional
 from pydantic import BaseModel
 
 class Token(BaseModel):
@@ -12,22 +11,19 @@ class Refresh(BaseModel):
 
 
 class TokenData(BaseModel):
-    gmail: str = None
+    email: Optional[str] = None
 
 
 class User(BaseModel):
-    gmail: str
-    telefon: str = None
-    ism: str = None
+    email: str
+    username: Optional[str] = None
 
 class UserResponse(BaseModel):
-    id: str
-    gmail: str
-    ism: str = None
-    telefon: str = None
+    id: int
+    email: str
+    username: Optional[str] = None
     role: str
-    telegram_id: int
-    rasm: str = None
+    rasm: Optional[str] = None
 
 
 class TokenResponse(BaseModel):
@@ -39,4 +35,4 @@ class TokenResponse(BaseModel):
 
 
 class ImmResponse(BaseModel):
-    gmail: str
+    email: str

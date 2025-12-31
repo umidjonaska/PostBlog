@@ -16,13 +16,12 @@ from core.redis_cli import RedisCLI
 import redis
 import orjson
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
 async def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
-
 
 async def verify_token(token: str):
     try:
@@ -43,32 +42,32 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def serialize_user(user: User) -> dict:
     return {
         "id": user.id,
-        "gmail": user.gmail,
+        "email": user.email,
         "role": user.role,
         "is_active": user.is_active,
     }
 
 
-async def get_user(db: AsyncSession, gmail: str):
+async def get_user(db: AsyncSession, email: str):
     redis_cli = RedisCLI()
     
-    cached_user = redis_cli.get(gmail)
+    cached_user = redis_cli.get(email)
     if cached_user:
-        return cached_user
+        return orjson.loads(cached_user)
 
     result = await db.execute(
-        select(User).where(User.gmail == gmail)
+        select(User).where(User.email == email)
     )
     user = result.scalar_one_or_none()
     if not user:
         return None
 
-    redis_cli.set(gmail, serialize_user(user), expire=3600)
-    return user
+    redis_cli.set(email, serialize_user(user), expire=3600)
+    return serialize_user(user)
 
-async def authenticate_user(db: AsyncSession, gmail: str, password: str):
+async def authenticate_user(db: AsyncSession, username: str, password: str):
     result = await db.execute(
-        select(User).where(User.gmail == gmail)
+        select(User).where(User.username == username)
     )
     user = result.scalar_one_or_none()
     if not user:
@@ -97,7 +96,8 @@ async def create_refresh_token(data: dict) -> str:
 
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme)
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
 ) -> dict:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -112,27 +112,29 @@ async def get_current_user(
 
     redis_cli = RedisCLI()
     user = redis_cli.get(username)
-
-    if not user:
-        raise credentials_exception
+    if user:
+        user = orjson.loads(user)
+    else:
+        user = await get_user(db, username)
+        if not user:
+            raise credentials_exception
 
     return user
 
 async def get_current_admin_user(current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != UserRole.ADMIN:
+    if UserRole(current_user["role"]) != UserRole.ADMIN:
         raise HTTPException(status_code=406, detail="Ruxsat yo‘q")
     return current_user
 
 
-
-async def user_refresh_token_update(db: AsyncSession, gmail: str, token: str):
+async def user_refresh_token_update(db: AsyncSession, email: str, token: str):
     '''
     Refresh tokendi update qilamiz
     '''
     if token:
         stmt = (
             update(User)
-            .where(User.gmail == gmail)
+            .where(User.email == email)
             .values(refresh_token=token)
         )
         await db.execute(stmt)

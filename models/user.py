@@ -1,5 +1,6 @@
-from sqlalchemy import Integer, String, DateTime
-from sqlalchemy.orm import relationship, declarative_base, Mapped, mapped_column
+from sqlalchemy import Integer, String, DateTime, Enum
+from sqlalchemy.orm import relationship, Mapped, mapped_column
+from schemas.user import UserRole
 from database.database import Base
 from datetime import datetime
 
@@ -10,7 +11,9 @@ class User(Base):
     id: Mapped[str] = mapped_column(Integer, primary_key=True)
     username: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
-    password : Mapped[str]= mapped_column(String(255))
+    password_hash : Mapped[str]= mapped_column(String(255))
+    role: Mapped[UserRole] = mapped_column(Enum(UserRole), default=UserRole.USER, nullable=False)
+    refresh_token: Mapped[str] = mapped_column(String(255), nullable=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[DateTime] = mapped_column(DateTime, default=datetime.utcnow)
     

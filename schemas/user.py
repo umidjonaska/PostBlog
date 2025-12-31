@@ -1,16 +1,17 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, constr
 from datetime import datetime
 from enum import Enum
 
 class UserRole(str, Enum):
     ADMIN = 'admin'
+    USER = 'user'
 
 class UserCreate(BaseModel):
 
     username: str
     email: EmailStr
-    role: UserRole.admin
-    password : str
+    role: UserRole
+    password_hash: str
     
 
 class UserResponse(UserCreate):
