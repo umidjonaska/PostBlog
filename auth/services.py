@@ -2,10 +2,11 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, update
 from datetime import datetime, timedelta
+
+import orjson
 
 from core.config import config
 from database.database import get_db
@@ -13,63 +14,104 @@ from models.user import User
 from schemas.user import UserRole
 from core.redis_cli import RedisCLI
 
-import redis
-import orjson
+# =============================
+# SECURITY
+# =============================
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
-async def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+# =============================
+# PASSWORD
+# =============================
 
-async def verify_token(token: str):
-    try:
-        payload = jwt.decode(token, config.app.secret_key, algorithms=[config.app.algorithm])
-        return payload
-    except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token yaroqsiz!",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+def get_password_hash(password: str) -> str:
+    return pwd_context.hash(password)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
+# =============================
+# JWT
+# =============================
+
+async def verify_token(token: str) -> dict:
+    try:
+        payload = jwt.decode(
+            token,
+            config.app.secret_key,
+            algorithms=[config.app.algorithm]
+        )
+        return payload
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token yaroqsiz",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
+async def create_access_token(data: dict) -> str:
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(
+        minutes=config.app.access_token_expire_minutes
+    )
+    to_encode.update({"exp": expire})
+    return jwt.encode(
+        to_encode,
+        config.app.secret_key,
+        algorithm=config.app.algorithm
+    )
+
+
+async def create_refresh_token(data: dict) -> str:
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(
+        days=config.app.refresh_token_expire_days
+    )
+    to_encode.update({"exp": expire})
+    return jwt.encode(
+        to_encode,
+        config.app.secret_key,
+        algorithm=config.app.algorithm
+    )
+
+
+# =============================
+# USER HELPERS
+# =============================
+
 def serialize_user(user: User) -> dict:
     return {
         "id": user.id,
         "email": user.email,
         "role": user.role,
-        "is_active": user.is_active,
     }
 
 
-async def get_user(db: AsyncSession, email: str):
-    redis_cli = RedisCLI()
-    
-    cached_user = redis_cli.get(email)
-    if cached_user:
-        return orjson.loads(cached_user)
-
+async def get_user_by_email(
+    db: AsyncSession,
+    email: str
+) -> User | None:
     result = await db.execute(
         select(User).where(User.email == email)
     )
-    user = result.scalar_one_or_none()
-    if not user:
-        return None
+    return result.scalar_one_or_none()
 
-    redis_cli.set(email, serialize_user(user), expire=3600)
-    return serialize_user(user)
 
-async def authenticate_user(db: AsyncSession, username: str, password: str):
+async def authenticate_user(
+    db: AsyncSession,
+    username: str,
+    password: str
+) -> User | None:
     result = await db.execute(
         select(User).where(User.username == username)
     )
     user = result.scalar_one_or_none()
+
     if not user:
         return None
 
@@ -79,66 +121,85 @@ async def authenticate_user(db: AsyncSession, username: str, password: str):
     return user
 
 
-async def create_access_token(data: dict) -> str:
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=config.app.access_token_expire_minutes)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, config.app.secret_key, algorithm=config.app.algorithm)
-    return encoded_jwt
-
-
-async def create_refresh_token(data: dict) -> str:
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(days=config.app.refresh_token_expire_days)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, config.app.secret_key, algorithm=config.app.algorithm)
-    return encoded_jwt
-
+# =============================
+# CURRENT USER (JWT + REDIS)
+# =============================
 
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db),
-) -> dict:
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials!",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
+):
     payload = await verify_token(token)
-    username: str = payload.get("sub")
-    if not username:
-        raise credentials_exception
+    email = payload.get("sub")
+
+    if not email:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
     redis_cli = RedisCLI()
-    user = redis_cli.get(username)
-    if user:
-        user = orjson.loads(user)
-    else:
-        user = await get_user(db, username)
-        if not user:
-            raise credentials_exception
 
-    return user
+    # 🔹 Redisdan tekshiramiz
+    cached = redis_cli.get(email)
+    if cached is not None and len(cached) > 0:
+        try:
+            # Redis'dan bytes yoki str keladi
+            return orjson.loads(cached)
+        except orjson.JSONDecodeError:
+            redis_cli.delete(email)
 
-async def get_current_admin_user(current_user: dict = Depends(get_current_user)):
+
+    # 🔹 DBdan olamiz
+    user = await get_user_by_email(db, email)
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    user_data = serialize_user(user)  # dict
+
+    # 🔹 Redisga JSON qilib saqlaymiz
+    redis_cli.set(
+        email,
+        orjson.dumps(user_data),
+        ex=3600
+    )
+
+    return user_data
+
+
+# =============================
+# ADMIN CHECK
+# =============================
+
+async def get_current_admin_user(
+    current_user: dict = Depends(get_current_user)
+):
     if UserRole(current_user["role"]) != UserRole.ADMIN:
-        raise HTTPException(status_code=406, detail="Ruxsat yo‘q")
+        raise HTTPException(
+            status_code=403,
+            detail="Ruxsat yo‘q"
+        )
     return current_user
 
 
-async def user_refresh_token_update(db: AsyncSession, email: str, token: str):
-    '''
-    Refresh tokendi update qilamiz
-    '''
-    if token:
-        stmt = (
-            update(User)
-            .where(User.email == email)
-            .values(refresh_token=token)
+# =============================
+# REFRESH TOKEN UPDATE
+# =============================
+
+async def user_refresh_token_update(
+    db: AsyncSession,
+    email: str,
+    token: str
+) -> bool:
+    if not token:
+        raise HTTPException(
+            status_code=422,
+            detail="Token bo‘sh"
         )
-        await db.execute(stmt)
-        await db.commit()
-    else:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Ma'lumot bo'sh")
+
+    stmt = (
+        update(User)
+        .where(User.email == email)
+        .values(refresh_token=token)
+    )
+    await db.execute(stmt)
+    await db.commit()
+
     return True

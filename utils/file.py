@@ -4,38 +4,32 @@ from fastapi import UploadFile
 
 MEDIA_ROOT = Path("media")
 
-# utils/file.py
 def save_file(file: UploadFile, folder: str) -> tuple[str, str, int]:
     ext = file.filename.split(".")[-1]
     filename = f"{uuid.uuid4()}.{ext}"
 
-    path = MEDIA_ROOT / folder
-    path.mkdir(parents=True, exist_ok=True)
+    folder_path = MEDIA_ROOT / folder
+    folder_path.mkdir(parents=True, exist_ok=True)
 
-    full_path = path / filename
+    full_path = folder_path / filename
 
-    content = file.file.read()
+    content = file.file.read()  # kichik fayllar uchun OK
     full_path.write_bytes(content)
 
-    return filename, str(full_path), len(content)
+    size = len(content)
+    return filename, str(full_path), size
 
-# utils/media.py
 def detect_media_type(mime: str) -> str:
+    mime = mime.lower()  # harflarni kichik qilamiz
     if mime.startswith("image"):
         return "image"
-    if mime.startswith("video"):
+    elif mime.startswith("video"):
         return "video"
-    if mime.startswith("audio"):
+    elif mime.startswith("audio"):
         return "audio"
-    raise ValueError("Unsupported file type")
+    # elif mime == "application/pdf":
+    #     return "document"
+    else:
+        raise ValueError(f"Unsupported file type: {mime}")
 
-# tasks/media.py
-def process_media(media_id: int, path: str, media_type: str):
-    if media_type == "image":
-        print("🖼 Thumbnail yaratish")
-
-    if media_type in ("video", "audio"):
-        print("🎧 Duration / bitrate hisoblash")
-
-    # bu yerda ffmpeg, pillow va h.k ishlatiladi
 

@@ -1,41 +1,43 @@
+# schemas/media.py
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from enum import Enum
 
+
 class MediaType(str, Enum):
     video = "video"
     audio = "audio"
-    photo = "photo"
+    image = "image"
+
 
 class MediaStatus(str, Enum):
-    uploading = "uploading"   # Fayl hozir yuklanmoqda
-    uploaded = "uploaded"     # Fayl yuklab bo‘lindi
-    deleted = "deleted"       # Fayl o‘chirilgan
-    processing = "processing" # (ixtiyoriy) masalan, video konvertatsiya qilinmoqda
-    failed = "failed"         # (ixtiyoriy) yuklashda xato bo‘ldi
+    uploading = "uploading"
+    uploaded = "uploaded"
+    processing = "processing"
+    failed = "failed"
+    deleted = "deleted"
 
 
-class MediaPayload(BaseModel):
+class MediaBase(BaseModel):
     filename: str
     path: str
     mime_type: str
     type: MediaType
     size: int
     owner_id: int
+
+class MediaCreate(MediaBase):
     thumbnail: Optional[str] = None
 
-class Media(MediaPayload):
+
+class MediaResponse(MediaBase):
     id: int
-
-    #Fayl davomiyligi
     duration: Optional[int] = None
-    # fayl o`lchami
     resolution: Optional[str] = None
-    #ma`lumot uzatish tezligi
     bitrate: Optional[int] = None
+    thumbnail: Optional[str] = None
     status: MediaStatus
-
     created_at: datetime
     updated_at: datetime
 
